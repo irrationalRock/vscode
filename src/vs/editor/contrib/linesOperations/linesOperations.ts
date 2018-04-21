@@ -19,7 +19,7 @@ import { Position } from 'vs/editor/common/core/position';
 import { registerEditorAction, ServicesAccessor, IActionOptions, EditorAction } from 'vs/editor/browser/editorExtensions';
 import { CopyLinesCommand } from './copyLinesCommand';
 import { DeleteLinesCommand } from './deleteLinesCommand';
-import { MoveLinesCommand } from './moveLinesCommand';
+//import { MoveLinesCommand } from './moveLinesCommand';
 import { TypeOperations } from 'vs/editor/common/controller/cursorTypeOperations';
 import { CoreEditingCommands } from 'vs/editor/browser/controller/coreCommands';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
@@ -86,27 +86,116 @@ class CopyLinesDownAction extends AbstractCopyLinesAction {
 
 abstract class AbstractMoveLinesAction extends EditorAction {
 
-	private down: boolean;
+	//private down: boolean;
 
 	constructor(down: boolean, opts: IActionOptions) {
 		super(opts);
-		this.down = down;
+		//this.down = down;
 	}
 
 	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
 
-		var commands: ICommand[] = [];
-		var selections = editor.getSelections();
-		var autoIndent = editor.getConfiguration().autoIndent;
 
-		for (var i = 0; i < selections.length; i++) {
-			commands.push(new MoveLinesCommand(selections[i], this.down, autoIndent));
+		const primaryCursor = editor.getSelection();
+		const allSelections = editor.getSelections();
+		const model = editor.getModel();
+		let rangeAll = [];
+		for (let i = 0; i < allSelections.length; i++) {
+			rangeAll.push(model.getLineContent(allSelections[i].selectionStartLineNumber));
+		}
+		//let fullResult = this._getFullRangesToMove(editor,rangeAll);
+		rangeAll.push(model.getLineContent(allSelections[0].selectionStartLineNumber - 1));
+		let result = editor.getModel().findPreviousMatch(rangeAll[rangeAll.length - 1], editor.getPosition(), false, true, null, false);
+		//thinking of using this to get the right selection
+		//need to append it to
+
+
+		let rangesToMove = this._getRangesToMove(editor);
+		let effectiveRanges: Range[] = [];
+
+		let lastEdit = [result.range];
+
+		for (let i = 0, count = rangesToMove.length - 1; i < count; i++) {
+
+			let range = rangesToMove[i];
+			let nextRange = rangesToMove[i + 1];
+
+			if (Range.intersectRanges(range, nextRange) === null) {
+				effectiveRanges.push(range);
+			} else {
+				rangesToMove[i + 1] = Range.plusRange(range, nextRange);
+			}
 		}
 
+		effectiveRanges.push(rangesToMove[rangesToMove.length - 1]);
+
+		let endCursorState = this._getEndCursorState(primaryCursor, effectiveRanges);
+		let count = 1;
+
+		let edits: IIdentifiedSingleEditOperation[] = effectiveRanges.map(range => {
+			endCursorState.push(new Selection(range.startLineNumber - 1, range.startColumn, range.endLineNumber - 1, range.endColumn));
+			return EditOperation.replaceMove(range, rangeAll[count++]);
+		});
+
+		edits = edits.concat(lastEdit.map(range => {
+			return EditOperation.replace(range, rangeAll[0]);
+		}));
+
 		editor.pushUndoStop();
-		editor.executeCommands(this.id, commands);
+		editor.executeEdits(this.id, edits, endCursorState);
 		editor.pushUndoStop();
 	}
+
+	_getEndCursorState(primaryCursor: Range, rangesToDelete: Range[]): Selection[] {
+		let endPrimaryCursor: Selection;
+		let endCursorState: Selection[] = [];
+
+		for (let i = 0, len = rangesToDelete.length; i < len; i++) {
+			let range = rangesToDelete[i];
+			//see if this changse anything (does the same thing as done in edits callback)
+			let endCursor = new Selection(rangesToDelete[i].startLineNumber - 1, rangesToDelete[i].startColumn, rangesToDelete[i].endLineNumber - 1, rangesToDelete[i].endColumn);
+
+			if (range.intersectRanges(primaryCursor)) {
+				endPrimaryCursor = endCursor;
+			} else {
+				endCursorState.push(endCursor);
+			}
+		}
+
+		if (endPrimaryCursor) {
+			endCursorState.unshift(endPrimaryCursor);
+		}
+
+		return endCursorState;
+	}
+
+	_getRangesToMove(editor: ICodeEditor): Range[] {
+		let rangesToMove: Range[] = editor.getSelections();
+
+		rangesToMove.sort(Range.compareRangesUsingStarts);
+		rangesToMove = rangesToMove.map(selection => {
+			if (selection.isEmpty()) {
+				//change this so that it takes whole line
+				return new Range(selection.startLineNumber, selection.startColumn, selection.endLineNumber, selection.endColumn);
+			} else {
+				return selection;
+			}
+		});
+
+		return rangesToMove;
+	}
+
+	_getFullRangesToMove(editor: ICodeEditor, rangesText: string[]): Range[] {
+		let rangesToMove: Range[] = editor.getSelections();
+		let fullRanges = [];
+
+		for (let i = 0; i < rangesToMove.length; i++) {
+			fullRanges.push(editor.getModel().findNextMatch(rangesText[i], editor.getPosition(), false, true, null, false));
+		}
+
+		return fullRanges;
+	}
+
 }
 
 class MoveLinesUpAction extends AbstractMoveLinesAction {
