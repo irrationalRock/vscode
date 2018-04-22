@@ -103,12 +103,8 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		for (let i = 0; i < allSelections.length; i++) {
 			rangeAll.push(model.getLineContent(allSelections[i].selectionStartLineNumber));
 		}
-		//let fullResult = this._getFullRangesToMove(editor,rangeAll);
 		rangeAll.push(model.getLineContent(allSelections[0].selectionStartLineNumber - 1));
 		let result = editor.getModel().findPreviousMatch(rangeAll[rangeAll.length - 1], editor.getPosition(), false, true, null, false);
-		//thinking of using this to get the right selection
-		//need to append it to
-
 
 		let rangesToMove = this._getRangesToMove(editor);
 		let effectiveRanges: Range[] = [];
@@ -152,7 +148,6 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 
 		for (let i = 0, len = rangesToDelete.length; i < len; i++) {
 			let range = rangesToDelete[i];
-			//see if this changse anything (does the same thing as done in edits callback)
 			let endCursor = new Selection(rangesToDelete[i].startLineNumber - 1, rangesToDelete[i].startColumn, rangesToDelete[i].endLineNumber - 1, rangesToDelete[i].endColumn);
 
 			if (range.intersectRanges(primaryCursor)) {
@@ -175,7 +170,6 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		rangesToMove.sort(Range.compareRangesUsingStarts);
 		rangesToMove = rangesToMove.map(selection => {
 			if (selection.isEmpty()) {
-				//change this so that it takes whole line
 				return new Range(selection.startLineNumber, selection.startColumn, selection.endLineNumber, selection.endColumn);
 			} else {
 				return selection;
@@ -183,17 +177,6 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		});
 
 		return rangesToMove;
-	}
-
-	_getFullRangesToMove(editor: ICodeEditor, rangesText: string[]): Range[] {
-		let rangesToMove: Range[] = editor.getSelections();
-		let fullRanges = [];
-
-		for (let i = 0; i < rangesToMove.length; i++) {
-			fullRanges.push(editor.getModel().findNextMatch(rangesText[i], editor.getPosition(), false, true, null, false));
-		}
-
-		return fullRanges;
 	}
 
 }
