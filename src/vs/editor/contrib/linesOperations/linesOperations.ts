@@ -103,8 +103,11 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		for (let i = 0; i < allSelections.length; i++) {
 			rangeAll.push(model.getLineContent(allSelections[i].selectionStartLineNumber));
 		}
+		let fullResult = this._getFullRangesToMove(editor, rangeAll);
 		rangeAll.push(model.getLineContent(allSelections[0].selectionStartLineNumber - 1));
 		let result = editor.getModel().findPreviousMatch(rangeAll[rangeAll.length - 1], editor.getPosition(), false, true, null, false);
+		//thinking of using this to get the right selection
+
 
 		let rangesToMove = this._getRangesToMove(editor);
 		let effectiveRanges: Range[] = [];
@@ -128,9 +131,8 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		let endCursorState = this._getEndCursorState(primaryCursor, effectiveRanges);
 		let count = 1;
 
-		let edits: IIdentifiedSingleEditOperation[] = effectiveRanges.map(range => {
-			endCursorState.push(new Selection(range.startLineNumber - 1, range.startColumn, range.endLineNumber - 1, range.endColumn));
-			return EditOperation.replaceMove(range, rangeAll[count++]);
+		let edits: IIdentifiedSingleEditOperation[] = fullResult.map(range => {
+			return EditOperation.replace(range, rangeAll[count++]);
 		});
 
 		edits = edits.concat(lastEdit.map(range => {
@@ -142,13 +144,13 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		editor.pushUndoStop();
 	}
 
-	_getEndCursorState(primaryCursor: Range, rangesToDelete: Range[]): Selection[] {
+	_getEndCursorState(primaryCursor: Range, rangesToMove: Range[]): Selection[] {
 		let endPrimaryCursor: Selection;
 		let endCursorState: Selection[] = [];
 
-		for (let i = 0, len = rangesToDelete.length; i < len; i++) {
-			let range = rangesToDelete[i];
-			let endCursor = new Selection(rangesToDelete[i].startLineNumber - 1, rangesToDelete[i].startColumn, rangesToDelete[i].endLineNumber - 1, rangesToDelete[i].endColumn);
+		for (let i = 0, len = rangesToMove.length; i < len; i++) {
+			let range = rangesToMove[i];
+			let endCursor = new Selection(rangesToMove[i].startLineNumber - 1, rangesToMove[i].startColumn, rangesToMove[i].endLineNumber - 1, rangesToMove[i].endColumn);
 
 			if (range.intersectRanges(primaryCursor)) {
 				endPrimaryCursor = endCursor;
@@ -177,6 +179,17 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		});
 
 		return rangesToMove;
+	}
+
+	_getFullRangesToMove(editor: ICodeEditor, rangesText: string[]): Range[] {
+		let rangesToMove: Range[] = editor.getSelections();
+		let fullRanges = [];
+
+		for (let i = 0; i < rangesToMove.length; i++) {
+			fullRanges.push(editor.getModel().findNextMatch(rangesText[i], editor.getPosition(), false, true, null, false).range);
+		}
+
+		return fullRanges;
 	}
 
 }
