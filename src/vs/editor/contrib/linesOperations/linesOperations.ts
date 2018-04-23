@@ -86,11 +86,11 @@ class CopyLinesDownAction extends AbstractCopyLinesAction {
 
 abstract class AbstractMoveLinesAction extends EditorAction {
 
-	//private down: boolean;
+	private down: boolean;
 
 	constructor(down: boolean, opts: IActionOptions) {
 		super(opts);
-		//this.down = down;
+		this.down = down;
 	}
 
 	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
@@ -99,15 +99,26 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		const primaryCursor = editor.getSelection();
 		const allSelections = editor.getSelections();
 		const model = editor.getModel();
+		const maxLine = model.getLineCount();
 		let rangeAll = [];
+		let result = null;
+
+		if (allSelections[0].startLineNumber === 1 || allSelections[allSelections.length - 1].startLineNumber >= maxLine) {
+			return null;
+		}
+
 		for (let i = 0; i < allSelections.length; i++) {
 			rangeAll.push(model.getLineContent(allSelections[i].selectionStartLineNumber));
 		}
 		let fullResult = this._getFullRangesToMove(editor, rangeAll);
-		rangeAll.push(model.getLineContent(allSelections[0].selectionStartLineNumber - 1));
-		let result = editor.getModel().findPreviousMatch(rangeAll[rangeAll.length - 1], editor.getPosition(), false, true, null, false);
-		//thinking of using this to get the right selection
 
+		if (this.down) {
+			rangeAll.unshift(model.getLineContent(allSelections[allSelections.length - 1].selectionStartLineNumber + 1));
+			result = editor.getModel().findNextMatch(rangeAll[0], editor.getPosition(), false, true, null, false);
+		} else {
+			rangeAll.push(model.getLineContent(allSelections[0].selectionStartLineNumber - 1));
+			result = editor.getModel().findPreviousMatch(rangeAll[rangeAll.length - 1], editor.getPosition(), false, true, null, false);
+		}
 
 		let rangesToMove = this._getRangesToMove(editor);
 		let effectiveRanges: Range[] = [];
@@ -128,29 +139,40 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 
 		effectiveRanges.push(rangesToMove[rangesToMove.length - 1]);
 
-		let endCursorState = this._getEndCursorState(primaryCursor, effectiveRanges);
-		let count = 1;
+		let endCursorState = this._getEndCursorState(primaryCursor, effectiveRanges, this.down);
+		let count = this.down ? 0 : 1;
 
 		let edits: IIdentifiedSingleEditOperation[] = fullResult.map(range => {
 			return EditOperation.replace(range, rangeAll[count++]);
 		});
 
-		edits = edits.concat(lastEdit.map(range => {
-			return EditOperation.replace(range, rangeAll[0]);
-		}));
+		if (this.down) {
+			edits = edits.concat(lastEdit.map(range => {
+				return EditOperation.replace(range, rangeAll[rangeAll.length - 1]);
+			}));
+		} else {
+			edits = edits.concat(lastEdit.map(range => {
+				return EditOperation.replace(range, rangeAll[0]);
+			}));
+		}
 
 		editor.pushUndoStop();
 		editor.executeEdits(this.id, edits, endCursorState);
 		editor.pushUndoStop();
 	}
 
-	_getEndCursorState(primaryCursor: Range, rangesToMove: Range[]): Selection[] {
+	_getEndCursorState(primaryCursor: Range, rangesToMove: Range[], down: boolean): Selection[] {
 		let endPrimaryCursor: Selection;
 		let endCursorState: Selection[] = [];
 
 		for (let i = 0, len = rangesToMove.length; i < len; i++) {
 			let range = rangesToMove[i];
-			let endCursor = new Selection(rangesToMove[i].startLineNumber - 1, rangesToMove[i].startColumn, rangesToMove[i].endLineNumber - 1, rangesToMove[i].endColumn);
+			let endCursor = null;
+			if (down) {
+				endCursor = new Selection(rangesToMove[i].startLineNumber + 1, rangesToMove[i].startColumn, rangesToMove[i].endLineNumber + 1, rangesToMove[i].endColumn);
+			} else {
+				endCursor = new Selection(rangesToMove[i].startLineNumber - 1, rangesToMove[i].startColumn, rangesToMove[i].endLineNumber - 1, rangesToMove[i].endColumn);
+			}
 
 			if (range.intersectRanges(primaryCursor)) {
 				endPrimaryCursor = endCursor;
