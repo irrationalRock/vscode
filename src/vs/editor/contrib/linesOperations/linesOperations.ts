@@ -95,7 +95,6 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 
 	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
 
-
 		const primaryCursor = editor.getSelection();
 		const allSelections = editor.getSelections();
 		const model = editor.getModel();
@@ -110,6 +109,7 @@ abstract class AbstractMoveLinesAction extends EditorAction {
 		for (let i = 0; i < allSelections.length; i++) {
 			rangeAll.push(model.getLineContent(allSelections[i].selectionStartLineNumber));
 		}
+
 		let fullResult = this._getFullRangesToMove(editor, rangeAll);
 
 		if (this.down) {
