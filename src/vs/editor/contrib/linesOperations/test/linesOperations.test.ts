@@ -42,6 +42,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should move multiple cursors down', function () {
 			withTestCodeEditor(
 				[
@@ -91,6 +92,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should move multiple cursor down at line 1', function () {
 			withTestCodeEditor(
 				[
@@ -140,6 +142,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should not move multiple cursor down at last line', function () {
 			withTestCodeEditor(
 				[
@@ -189,6 +192,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should move single cursor down', function () {
 			withTestCodeEditor(
 				[
@@ -238,6 +242,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should move single cursor down at line 1', function () {
 			withTestCodeEditor(
 				[
@@ -287,6 +292,7 @@ suite('Editor Contrib - Line Operations', () => {
 					]);
 				});
 		});
+
 		test('should not move single cursor down at last line', function () {
 			withTestCodeEditor(
 				[
